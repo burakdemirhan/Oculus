@@ -5,6 +5,7 @@ public class PlayerController : MonoBehaviour
     public float moveSpeed = 4f;
     public float mouseSensitivity = 120f;
     public Transform playerCamera;
+    public float interactionDistance = 3f;
 
     private CharacterController controller;
     private float cameraPitch = 0f;
@@ -15,6 +16,11 @@ public class PlayerController : MonoBehaviour
     {
         controller = GetComponent<CharacterController>();
 
+        if (playerCamera != null)
+        {
+            playerCamera.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
+        }
+
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -23,7 +29,10 @@ public class PlayerController : MonoBehaviour
     {
         Move();
         Look();
-       // ApplyGravity();
+        CheckInteraction();
+
+        // Şimdilik kapalı. Yatak/zemin sistemi stabil olunca açabiliriz.
+        // ApplyGravity();
     }
 
     void Move()
@@ -45,31 +54,74 @@ public class PlayerController : MonoBehaviour
 
     float keyboardTurn = 0f;
 
-    if (Input.GetKey(KeyCode.Q))
+    float keyboardPitch = 0f;
 
-    {
+    if (Input.GetKey(KeyCode.Q) || Input.GetKey(KeyCode.LeftArrow))
 
         keyboardTurn = -1f;
 
-    }
-
-    if (Input.GetKey(KeyCode.E))
-
-    {
+    if (Input.GetKey(KeyCode.R) || Input.GetKey(KeyCode.RightArrow))
 
         keyboardTurn = 1f;
 
-    }
+    if (Input.GetKey(KeyCode.UpArrow))
+
+        keyboardPitch = 1f;
+
+    if (Input.GetKey(KeyCode.DownArrow))
+
+        keyboardPitch = -1f;
 
     transform.Rotate(Vector3.up * (mouseX + keyboardTurn * mouseSensitivity * Time.deltaTime));
 
     cameraPitch -= mouseY;
+
+    cameraPitch += keyboardPitch * mouseSensitivity * Time.deltaTime;
 
     cameraPitch = Mathf.Clamp(cameraPitch, -80f, 80f);
 
     playerCamera.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
 
 }
+
+    void CheckInteraction()
+    {
+        if (playerCamera == null) return;
+
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            Debug.Log("E pressed");
+
+            Ray ray = new Ray(playerCamera.position, playerCamera.forward);
+
+            if (Physics.SphereCast(ray, 0.5f, out RaycastHit hit, interactionDistance, ~LayerMask.GetMask("Player")))
+            {
+                Debug.Log("Hit: " + hit.collider.name);
+
+                CollectibleObject collectible = hit.collider.GetComponentInParent<CollectibleObject>();
+
+                if (collectible != null)
+                {
+                    collectible.Collect();
+                    return;
+                }
+
+                InteractableObject interactable = hit.collider.GetComponentInParent<InteractableObject>();
+
+                if (interactable != null)
+                {
+                    interactable.Interact();
+                    return;
+                }
+
+                Debug.Log("Hit object has no interaction script.");
+            }
+            else
+            {
+                Debug.Log("Nothing hit");
+            }
+        }
+    }
 
     void ApplyGravity()
     {
